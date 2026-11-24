@@ -95,6 +95,10 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*Payment, bool, e
 	if err := s.repo.SetStatus(ctx, p.ID, state.StatusCreated, state.StatusProcessing); err != nil {
 		return nil, false, err
 	}
+	// La DB ya está en processing: el objeto que devolvemos tiene que contar
+	// lo mismo. Si no, el frontend mostraría "created" para un pago que ya
+	// puede recibir el webhook.
+	p.Status = state.StatusProcessing
 
 	payload, _ := json.Marshal(createdEvent{
 		EventID: "evt_" + uuid.NewString(), Type: "payment.created", PaymentID: p.ID,
