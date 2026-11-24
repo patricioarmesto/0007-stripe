@@ -81,6 +81,7 @@ CREATE TABLE webhook_events (
   event_id text UNIQUE NOT NULL,
   type text NOT NULL,
   payment_id uuid NOT NULL REFERENCES payments(id),
+  attempts int NOT NULL DEFAULT 1,
   processed_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -141,6 +142,7 @@ Nginx en `:3000` enruta `/api/payments/*` → `payments:8081`, `/api/webhooks/*`
 |---|---|---|
 | payments | `POST /payments` | Header obligatorio `Idempotency-Key` (uuid del cliente). Body `{ amount, currency: "ARS", email, payment_method: "card_test" }`. Si ya existe la clave, devuelve el mismo pago. Si no, inserta `created`, publica evento y pasa a `processing`. |
 | payments | `GET /payments/:id` | Estado actual e historial de `payment_transitions`. |
+| payments | `GET /payments` | Listado para la tabla del dashboard, con `attempts` de `webhook_events` (0 si no hay webhook). |
 | payments | `GET /health` | 200. |
 | webhook | `POST /webhooks` | Header `X-Signature: sha256=<hex>` con HMAC-SHA256 del body crudo y `STRIPE_WEBHOOK_SECRET=whsec_test` de `.env`. Firma inválida → 401. Body `{ event_id, type, payment_id }`. |
 | webhook | `POST /webhooks/simulate` | Arma un evento para un `payment_id`, lo firma con el secret y lo entrega a `/webhooks`. Lo usa el botón del checkout; el frontend nunca ve el secret. |
