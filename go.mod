@@ -2,7 +2,11 @@ module github.com/patricioarmesto/0007-stripe
 
 go 1.23
 
-require github.com/segmentio/kafka-go v0.4.47
+require (
+	github.com/google/uuid v1.6.0
+	github.com/lib/pq v1.12.3
+	github.com/segmentio/kafka-go v0.4.47
+)
 
 require (
 	github.com/klauspost/compress v1.17.7 // indirect
