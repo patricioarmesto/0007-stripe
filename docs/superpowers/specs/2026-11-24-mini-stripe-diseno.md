@@ -16,6 +16,16 @@ los reintentos solo son seguros si el `event_id` es estable y único.
 401, el tercer intento con el mismo `event_id` no vuelve a cambiar el estado ni a
 publicar en Kafka, y el dashboard muestra los pagos cobrados leyendo ClickHouse.
 
+### Para entender el webhook (va también en el README)
+
+El click en **Pagar** es una intención, no un cobro. El cobro lo confirma el
+procesador mediante un webhook: es el recibo del banco, no el pedido del mozo.
+`event_id` es la clave de idempotencia que genera el banco para ese aviso (tipo
+`evt_...`); el `Idempotency-Key` de `/payments` la genera el cliente. Las dos terminan
+en columnas `UNIQUE` distintas: una evita dos pagos por doble click, la otra evita
+aplicar dos veces el mismo aviso. El `event_id` prueba identidad del aviso; la firma
+HMAC prueba que viene del banco. Van juntos: primero firma, después idempotencia.
+
 ## Stack y límites
 
 Go, TypeScript + React + Vite + Tailwind + Recharts, Postgres, Redis, Kafka (KRaft,
