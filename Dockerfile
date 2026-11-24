@@ -1,0 +1,12 @@
+FROM golang:1.23-alpine AS build
+ARG SERVICE
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -o /bin/app ./cmd/${SERVICE}
+
+FROM alpine:3.20
+RUN apk add --no-cache ca-certificates
+COPY --from=build /bin/app /app
+ENTRYPOINT ["/app"]

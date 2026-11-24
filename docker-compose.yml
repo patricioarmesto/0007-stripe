@@ -1,0 +1,104 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports: ["15432:5432"]
+    volumes:
+      - ./db/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ["16379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  kafka:
+    image: bitnami/kafka:3.7
+    environment:
+      KAFKA_CFG_NODE_ID: 1
+      KAFKA_CFG_PROCESS_ROLES: controller,broker
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports: ["19092:9092"]
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 10s
+      retries: 15
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    ports: ["18123:8123", "19000:9000"]
+    volumes:
+      - ./db/clickhouse/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - chdata:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 5s
+      retries: 10
+
+  payments:
+    build: { context: ., dockerfile: Dockerfile, args: { SERVICE: payments } }
+    env_file: .env
+    environment:
+      PORT: "8081"
+      POSTGRES_DSN: postgres://stripe:stripe@postgres:5432/stripe?sslmode=disable
+      REDIS_ADDR: redis:6379
+      KAFKA_BROKERS: kafka:9092
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+
+  webhook:
+    build: { context: ., dockerfile: Dockerfile, args: { SERVICE: webhook } }
+    env_file: .env
+    environment:
+      PORT: "8082"
+      POSTGRES_DSN: postgres://stripe:stripe@postgres:5432/stripe?sslmode=disable
+      KAFKA_BROKERS: kafka:9092
+    depends_on:
+      postgres: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+
+  consumer:
+    build: { context: ., dockerfile: Dockerfile, args: { SERVICE: consumer } }
+    env_file: .env
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      CLICKHOUSE_DSN: clickhouse://default@clickhouse:9000/stripe
+    depends_on:
+      kafka: { condition: service_healthy }
+      clickhouse: { condition: service_healthy }
+
+  dashboard:
+    build: { context: ., dockerfile: Dockerfile, args: { SERVICE: dashboard } }
+    env_file: .env
+    environment:
+      PORT: "8083"
+      CLICKHOUSE_DSN: clickhouse://default@clickhouse:9000/stripe
+    depends_on:
+      clickhouse: { condition: service_healthy }
+
+  frontend:
+    build: { context: ., dockerfile: frontend/Dockerfile }
+    ports: ["3000:80"]
+    depends_on: [payments, webhook, dashboard]
+
+volumes:
+  pgdata:
+  chdata:
