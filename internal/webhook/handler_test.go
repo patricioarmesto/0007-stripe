@@ -80,4 +80,10 @@ func TestHandlerSimulateFirmaInternamente(t *testing.T) {
 	if w.Code != http.StatusOK || svc.calls != 1 {
 		t.Fatalf("simulate: code=%d calls=%d body=%s", w.Code, svc.calls, w.Body.String())
 	}
+	var resp map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
+	eventID, ok := resp["event_id"].(string)
+	if !ok || !strings.HasPrefix(eventID, "evt_") {
+		t.Fatalf("simulate debe devolver el event_id para probar el retry: %v", resp)
+	}
 }

@@ -103,7 +103,14 @@ func (h *Handler) simulate(w http.ResponseWriter, r *http.Request) {
 	body, _ := json.Marshal(ev)
 	// Se firma acá adentro: el frontend nunca ve el secret.
 	code, resp := h.process(r.Context(), body, Sign(body, h.secret))
-	writeJSON(w, code, resp)
+	// Devolvemos el event_id para que la demo pueda probar el reintento con
+	// EXACTAMENTE el mismo aviso. El secret nunca sale del servidor.
+	m, _ := resp.(map[string]any)
+	if m == nil {
+		m = map[string]any{}
+	}
+	m["event_id"] = ev.EventID
+	writeJSON(w, code, m)
 }
 
 func (h *Handler) retry(w http.ResponseWriter, r *http.Request) {
