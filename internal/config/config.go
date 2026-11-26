@@ -21,7 +21,7 @@ func Load() Config {
 		RedisAddr:     env("REDIS_ADDR", "redis:6379"),
 		KafkaBrokers:  []string{env("KAFKA_BROKERS", "kafka:9092")},
 		KafkaTopic:    env("KAFKA_TOPIC", "payments.events"),
-		ClickHouseDSN: env("CLICKHOUSE_DSN", "clickhouse://default@clickhouse:9000/stripe"),
+		ClickHouseDSN: env("CLICKHOUSE_DSN", "clickhouse://stripe:stripe@clickhouse:9000/stripe"),
 		WebhookSecret: env("STRIPE_WEBHOOK_SECRET", "whsec_test"),
 		Port:          env("PORT", "8081"),
 	}
