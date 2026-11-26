@@ -99,6 +99,11 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*Payment, bool, e
 	// lo mismo. Si no, el frontend mostraría "created" para un pago que ya
 	// puede recibir el webhook.
 	p.Status = state.StatusProcessing
+	// La DB pone created_at con DEFAULT now() y el repo no se lo devuelve al
+	// INSERT: lo recargamos para que la respuesta no muestre un año 0001.
+	if guardado, err := s.repo.GetByID(ctx, p.ID); err == nil && guardado != nil {
+		p = guardado
+	}
 
 	payload, _ := json.Marshal(createdEvent{
 		EventID: "evt_" + uuid.NewString(), Type: "payment.created", PaymentID: p.ID,

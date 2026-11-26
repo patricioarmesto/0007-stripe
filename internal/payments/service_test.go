@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/patricioarmesto/0007-stripe/internal/state"
@@ -29,6 +30,7 @@ func (f *fakeRepo) List(_ context.Context) ([]Payment, error) { return nil, nil 
 func (f *fakeRepo) Insert(_ context.Context, p *Payment) error {
 	f.inserts++
 	c := *p
+	c.CreatedAt = time.Now().UTC() // la DB pone el default now(); no toca el puntero del caller
 	f.byKey[p.IdempotencyKey] = &c
 	f.byID[p.ID] = &c
 	return nil
@@ -73,6 +75,9 @@ func TestServicioCreateEsIdempotente(t *testing.T) {
 	primero, created, err := s.Create(context.Background(), in)
 	if err != nil || !created {
 		t.Fatalf("primer create falló: %+v %v %v", primero, created, err)
+	}
+	if primero.CreatedAt.IsZero() {
+		t.Fatal("el create debe devolver el created_at persistido, no el timestamp cero")
 	}
 	segundo, created, err := s.Create(context.Background(), in)
 	if err != nil || created {
